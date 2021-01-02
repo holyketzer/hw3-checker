@@ -1,0 +1,6 @@
+beautifulsoup4
+flask==1.1.2
+gunicorn==20.0.4
+lxml
+python-dotenv
+requests==2.25.1
