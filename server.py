@@ -10,6 +10,7 @@ import uuid
 from flask import Flask, request, render_template
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
+from unittest.mock import patch, Mock
 
 CBR_CURRENCY_BASE_DAILY_FILE = "cbr_currency_base_daily.html"
 CBR_KEY_INDICATORS_FILE = "cbr_key_indicators.html"
@@ -47,10 +48,10 @@ def score():
         filename = os.path.join(UPLOAD_FOLDER, str(uuid.uuid4()) + ".py")
         file.save(filename)
         result = test_solution(filename)
+        os.remove(filename)
 
         return render_template(
             'index.html',
-            filename=filename,
             result=result,
         )
     except:
@@ -72,41 +73,45 @@ def test_solution(filename):
     res.update(test_parse(parse_cbr_currency_base_daily, CBR_CURRENCY_BASE_DAILY, "cbr_currency_base_daily"))
     res.update(test_parse(parse_cbr_key_indicators, CBR_KEY_INDICATORS, "cbr_key_indicators"))
 
-    actual_responses = EXPECTED["requests"]
-    response_res = []
+    with patch.object(module.requests, 'get', new=http_get_mocker):
+        actual_responses = EXPECTED["requests"]
+        response_res = []
 
-    for i, (url, status_code, expected_response) in enumerate(actual_responses):
-        try:
-            actual_response = test_client.get(url)
-            actual_status_code = actual_response.status_code
+        for i, (url, status_code, expected_response) in enumerate(actual_responses):
+            # import pdb; pdb.set_trace()
 
             try:
-                actual_response = json.loads(actual_response.data.decode(actual_response.charset))
-            except json.decoder.JSONDecodeError:
-                actual_response = actual_response.data.decode(actual_response.charset)
+                actual_response = test_client.get(url)
+                actual_status_code = actual_response.status_code
 
-            if status_code != actual_status_code or (status_code == 200 and not isinstance(expected_response, str) and expected_response != actual_response):
-                response_res.append(
-                    {
-                        "url": url,
-                        "actual": { "status": actual_status_code, "response": actual_response},
-                        "expected": { "status": status_code, "response": expected_response},
-                    }
-                )
-            else:
-                response_res.append(
-                    {
-                        "url": url,
-                        "actual": {
-                            "status": actual_status_code,
-                            "response": actual_response,
-                        },
-                    }
-                )
-        except:
-            response_res.append({"url": url, "error": format_error(sys.exc_info())})
+                try:
+                    actual_response = json.loads(actual_response.data.decode(actual_response.charset))
+                except json.decoder.JSONDecodeError:
+                    actual_response = actual_response.data.decode(actual_response.charset)
 
-    res["requests"] = response_res
+                if status_code != actual_status_code or (status_code == 200 and not isinstance(expected_response, str) and expected_response != actual_response):
+                    response_res.append(
+                        {
+                            "url": url,
+                            "actual": { "status": actual_status_code, "response": actual_response},
+                            "expected": { "status": status_code, "response": expected_response},
+                        }
+                    )
+                else:
+                    response_res.append(
+                        {
+                            "url": url,
+                            "actual": {
+                                "status": actual_status_code,
+                                "response": actual_response,
+                            },
+                        }
+                    )
+            except:
+                response_res.append({"url": url, "error": format_error(sys.exc_info())})
+
+        res["requests"] = response_res
+
     return res
 
 def format_error(e):
@@ -133,3 +138,19 @@ def test_parse(func, source, expected_key):
         return { expected_key: { "error": error } }
     else:
         return { expected_key: { "actual": actual } }
+
+def http_get_mocker(url, allow_redirects=True, **kwargs):
+    html = None
+
+    if "currency_base/daily" in url:
+        html = CBR_CURRENCY_BASE_DAILY
+    elif "key-indicators" in url:
+        html = CBR_KEY_INDICATORS
+    else:
+        raise Exception(f'Unexpected request {url}')
+
+    return Mock(
+        status_code=200,
+        ok=True,
+        text=html
+    )

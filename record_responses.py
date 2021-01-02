@@ -2,6 +2,10 @@ import importlib.util
 import json
 import os
 
+import requests
+
+from unittest.mock import patch, Mock
+
 SOLUTION_FILE = "../hw-03-asset-web-service/task_emelyanov_alexandr_asset_web_service.py"
 CBR_CURRENCY_BASE_DAILY_FILE = "cbr_currency_base_daily.html"
 CBR_KEY_INDICATORS_FILE = "cbr_key_indicators.html"
@@ -31,6 +35,22 @@ def _read_file(path):
 CBR_CURRENCY_BASE_DAILY = _read_file(CBR_CURRENCY_BASE_DAILY_FILE)
 CBR_KEY_INDICATORS = _read_file(CBR_KEY_INDICATORS_FILE)
 
+def http_mocker(arg, **kwargs):
+    html = None
+
+    if "currency_base/daily" in arg:
+        html = CBR_CURRENCY_BASE_DAILY
+    elif "key-indicators" in arg:
+        html = CBR_KEY_INDICATORS
+    else:
+        raise Exception(f'Unexpected request {arg}')
+
+    return Mock(
+        status_code=200,
+        ok=True,
+        text=html
+    )
+
 def main():
     spec = importlib.util.spec_from_file_location(os.path.basename(SOLUTION_FILE).replace(".py", ""), SOLUTION_FILE)
     module = importlib.util.module_from_spec(spec)
@@ -41,21 +61,21 @@ def main():
     parse_cbr_currency_base_daily = module.parse_cbr_currency_base_daily
     parse_cbr_key_indicators = module.parse_cbr_key_indicators
 
-
     total = {}
 
     total["cbr_currency_base_daily"] = parse_cbr_currency_base_daily(CBR_CURRENCY_BASE_DAILY)
     total["cbr_key_indicators"] = parse_cbr_key_indicators(CBR_KEY_INDICATORS)
 
-    req_res = []
-    for url in REQUEST_LIST:
-        response = test_client.get(url)
-        try:
-            req_res.append([url, response.status_code, json.loads(response.data.decode(response.charset))])
-        except json.decoder.JSONDecodeError:
-            req_res.append([url, response.status_code, response.data.decode(response.charset)])
+    with patch.object(requests, 'get', side_effect=http_mocker):
+        req_res = []
+        for url in REQUEST_LIST:
+            response = test_client.get(url)
+            try:
+                req_res.append([url, response.status_code, json.loads(response.data.decode(response.charset))])
+            except json.decoder.JSONDecodeError:
+                req_res.append([url, response.status_code, response.data.decode(response.charset)])
 
-    total["requests"] = req_res
+        total["requests"] = req_res
 
     with open(OUTPUT_FILE, "w") as f:
         f.write(json.dumps(total))
