@@ -8,7 +8,6 @@ import requests
 import uuid
 
 from flask import Flask, request, render_template
-from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
 from unittest.mock import patch, Mock
 
@@ -16,6 +15,7 @@ CBR_CURRENCY_BASE_DAILY_FILE = "cbr_currency_base_daily.html"
 CBR_KEY_INDICATORS_FILE = "cbr_key_indicators.html"
 UPLOAD_FOLDER = "uploads/"
 EXPECTED_FILE = "expected.json"
+EPSILON = 10e-8
 
 def _read_file(path):
     with open(path, "r") as f:
@@ -26,8 +26,6 @@ CBR_KEY_INDICATORS = _read_file(CBR_KEY_INDICATORS_FILE)
 EXPECTED = json.loads(_read_file(EXPECTED_FILE))
 
 # import pdb; pdb.set_trace()
-
-load_dotenv(verbose=True)
 
 app = Flask(__name__, static_url_path="/static")
 
@@ -89,7 +87,7 @@ def test_solution(filename):
                 except json.decoder.JSONDecodeError:
                     actual_response = actual_response.data.decode(actual_response.charset)
 
-                if status_code != actual_status_code or (status_code == 200 and not isinstance(expected_response, str) and expected_response != actual_response):
+                if status_code != actual_status_code or (status_code == 200 and not isinstance(expected_response, str) and not json_is_same(expected_response, actual_response)):
                     response_res.append(
                         {
                             "url": url,
@@ -114,6 +112,37 @@ def test_solution(filename):
 
     return res
 
+def json_is_same(expected, actual):
+    if type(expected) != type(actual):
+        print(expected, "!=", actual)
+        return False
+
+    if isinstance(expected, int) or isinstance(expected, float):
+        if abs(expected - actual) >= EPSILON:
+            print(abs(expected - actual), EPSILON, expected, actual)
+
+        return abs(expected - actual) < EPSILON
+
+    if isinstance(expected, str):
+        if expected != actual:
+            print(expected, "!=", actual)
+        return expected == actual
+
+    if isinstance(expected, dict):
+        expected_keys = set(expected.keys())
+        actual_keys = set(actual.keys())
+
+        if expected_keys != actual_keys:
+            print(expected_keys, "!=", actual_keys)
+            return False
+
+        for key in expected_keys:
+            if not json_is_same(expected[key], actual[key]):
+                print(key, expected[key], actual[key])
+                return False
+
+    return True
+
 def format_error(e):
     return "\n".join([str(e[1]), traceback.format_exc()]).replace("\n", "</br>")
 
@@ -124,7 +153,7 @@ def test_parse(func, source, expected_key):
     try:
         actual = func(source)
 
-        if actual != EXPECTED[expected_key]:
+        if not json_is_same(EXPECTED[expected_key], actual):
             return {
                 expected_key: {
                     "expected": EXPECTED[expected_key],
