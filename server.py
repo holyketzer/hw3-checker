@@ -110,8 +110,18 @@ def test_solution(filename):
 
         res["requests"] = response_res
 
-    res["requests"].append(test_cbr_503("/cbr/daily", test_client, module.requests))
-    res["requests"].append(test_cbr_503("/cbr/key_indicators", test_client, module.requests))
+    res["requests"].append(
+        test_cbr_503("/cbr/daily", test_client, module.requests, http_get_mocker_with_500, "CBR 500")
+    )
+    res["requests"].append(
+        test_cbr_503("/cbr/key_indicators", test_client, module.requests, http_get_mocker_with_500, "CBR 500")
+    )
+    res["requests"].append(
+        test_cbr_503("/cbr/daily", test_client, module.requests, http_get_mocker_with_exception, "ConnectionError")
+    )
+    res["requests"].append(
+        test_cbr_503("/cbr/key_indicators", test_client, module.requests, http_get_mocker_with_exception, "ConnectionError")
+    )
 
     return res
 
@@ -163,14 +173,14 @@ def test_parse(func, source, expected_key):
     else:
         return { expected_key: { "actual": actual } }
 
-def test_cbr_503(url, test_client, module_requests):
+def test_cbr_503(url, test_client, module_requests, mock_func, desc):
     expected = {
         "status": 503,
         "response": "CBR service is unavailable",
     }
 
     try:
-        with patch.object(module_requests, 'get', new=http_get_mocker_with_500):
+        with patch.object(module_requests, 'get', new=mock_func):
             actual_response = test_client.get(url)
 
             actual = {
@@ -179,12 +189,12 @@ def test_cbr_503(url, test_client, module_requests):
             }
 
             if expected != actual:
-                return { "expected": expected, "actual": actual, "url": f"{url} (503)" }
+                return { "expected": expected, "actual": actual, "url": f"{url} {desc}" }
             else:
-                return { "actual": actual, "url": f"{url} (503)" }
+                return { "actual": actual, "url": f"{url} {desc}" }
     except:
         error = str(format_error(sys.exc_info()))
-        return { "error": error, "url": f"{url} (503)" }
+        return { "error": error, "url": f"{url} {desc}" }
 
 def http_get_mocker(url, allow_redirects=True, **kwargs):
     html = None
@@ -207,4 +217,9 @@ def http_get_mocker_with_500(url, allow_redirects=True, **kwargs):
         status_code=500,
         ok=False,
         text="Something went wrong"
+    )
+
+def http_get_mocker_with_exception(url, allow_redirects=True, **kwargs):
+    return Mock(
+        side_effect=ConnectionError("something when wrong")
     )
