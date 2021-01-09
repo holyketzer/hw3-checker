@@ -110,22 +110,19 @@ def test_solution(filename):
 
         res["requests"] = response_res
 
+    res["requests"].append(test_cbr_503("/cbr/daily", test_client, module.requests))
+    res["requests"].append(test_cbr_503("/cbr/key_indicators", test_client, module.requests))
+
     return res
 
 def json_is_same(expected, actual):
     if type(expected) != type(actual):
-        print(expected, "!=", actual)
         return False
 
     if isinstance(expected, int) or isinstance(expected, float):
-        if abs(expected - actual) >= EPSILON:
-            print(abs(expected - actual), EPSILON, expected, actual)
-
         return abs(expected - actual) < EPSILON
 
     if isinstance(expected, str):
-        if expected != actual:
-            print(expected, "!=", actual)
         return expected == actual
 
     if isinstance(expected, dict):
@@ -133,12 +130,10 @@ def json_is_same(expected, actual):
         actual_keys = set(actual.keys())
 
         if expected_keys != actual_keys:
-            print(expected_keys, "!=", actual_keys)
             return False
 
         for key in expected_keys:
             if not json_is_same(expected[key], actual[key]):
-                print(key, expected[key], actual[key])
                 return False
 
     return True
@@ -168,6 +163,29 @@ def test_parse(func, source, expected_key):
     else:
         return { expected_key: { "actual": actual } }
 
+def test_cbr_503(url, test_client, module_requests):
+    expected = {
+        "status": 503,
+        "response": "CBR service is unavailable",
+    }
+
+    try:
+        with patch.object(module_requests, 'get', new=http_get_mocker_with_500):
+            actual_response = test_client.get(url)
+
+            actual = {
+                "status": actual_response.status_code,
+                "response": actual_response.data.decode(actual_response.charset),
+            }
+
+            if expected != actual:
+                return { "expected": expected, "actual": actual, "url": f"{url} (503)" }
+            else:
+                return { "actual": actual, "url": f"{url} (503)" }
+    except:
+        error = str(format_error(sys.exc_info()))
+        return { "error": error, "url": f"{url} (503)" }
+
 def http_get_mocker(url, allow_redirects=True, **kwargs):
     html = None
 
@@ -182,4 +200,11 @@ def http_get_mocker(url, allow_redirects=True, **kwargs):
         status_code=200,
         ok=True,
         text=html
+    )
+
+def http_get_mocker_with_500(url, allow_redirects=True, **kwargs):
+    return Mock(
+        status_code=500,
+        ok=False,
+        text="Something went wrong"
     )
