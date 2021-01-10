@@ -124,6 +124,8 @@ def test_solution(filename):
         test_cbr_503("/cbr/key_indicators", test_client, module.requests, http_get_mocker_with_exception, "ConnectionError")
     )
 
+    res["requests"].append(test_cbr_404("/api/asset/invalid_route", test_client))
+
     return res
 
 def json_is_same(expected, actual):
@@ -196,6 +198,29 @@ def test_cbr_503(url, test_client, module_requests, mock_func, desc):
     except:
         error = str(format_error(sys.exc_info()))
         return { "error": error, "url": f"{url} {desc}" }
+
+def test_cbr_404(url, test_client):
+    expected = {
+        "status": 404,
+        "response": "This route is not found",
+    }
+
+    try:
+        actual_response = test_client.get(url)
+
+        actual = {
+            "status": actual_response.status_code,
+            "response": actual_response.data.decode(actual_response.charset),
+        }
+
+        if expected != actual:
+            return { "expected": expected, "actual": actual, "url": url }
+        else:
+            return { "actual": actual, "url": url }
+    except:
+        error = str(format_error(sys.exc_info()))
+        return { "error": error, "url": url }
+
 
 def http_get_mocker(url, allow_redirects=True, **kwargs):
     html = None
