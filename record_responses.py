@@ -15,14 +15,14 @@ REQUEST_LIST = [
     '/cbr/daily',
     '/cbr/key_indicators',
     '/api/asset/list',
-    '/api/asset/add/USD/dollars/120.0/5.6',
-    '/api/asset/add/EUR/euro/12.0/1.2',
-    '/api/asset/add/Silver/Ag/50.5/10.1',
-    '/api/asset/add/INR/Indian/10.5/99.1',
-    '/api/asset/add/Yen/JPY/1.5/1.7',
-    '/api/asset/add/Yen/JPY/1.5/1.7',
+    '/api/asset/add/USD/US stocks/120.0/5.6',
+    '/api/asset/add/EUR/Eurobonds/12.0/1.2',
+    '/api/asset/add/Ag/Silver/50.5/10.1',
+    '/api/asset/add/INR/Indian high-yield bonds/10.5/99.1',
+    '/api/asset/add/JPY/Japanese Government Bond/1.5/1.7',
+    '/api/asset/add/JPY/Japanese Government Bond/1.5/1.7',
     '/api/asset/list',
-    '/api/asset/get?name=dollars&name=euro&name=Unknown',
+    '/api/asset/get?name=US stocks&name=Eurobonds&name=Unknown',
     '/api/asset/calculate_revenue?period=1&period=2&period=5',
     '/api/asset/cleanup',
     '/api/asset/list',
@@ -43,7 +43,7 @@ def http_mocker(arg, **kwargs):
     elif "key-indicators" in arg:
         html = CBR_KEY_INDICATORS
     else:
-        raise Exception(f'Unexpected request {arg}')
+        raise Exception(f"Unexpected request {arg}")
 
     return Mock(
         status_code=200,
