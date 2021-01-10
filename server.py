@@ -16,6 +16,7 @@ CBR_KEY_INDICATORS_FILE = "cbr_key_indicators.html"
 UPLOAD_FOLDER = "uploads/"
 EXPECTED_FILE = "expected.json"
 EPSILON = 10e-8
+ENCODING = "utf-8"
 
 def _read_file(path):
     with open(path, "r") as f:
@@ -209,7 +210,9 @@ def http_get_mocker(url, allow_redirects=True, **kwargs):
     return Mock(
         status_code=200,
         ok=True,
-        text=html
+        text=html,
+        content=html.encode(ENCODING),
+        encoding=ENCODING,
     )
 
 def http_get_mocker_with_500(url, allow_redirects=True, **kwargs):
